@@ -100,6 +100,11 @@ def test_computer_use_live_frame_and_reload_parity(
         expect(panel.get_by_text("TextEdit", exact=True)).to_be_visible()
         expect(panel.get_by_text("Inspect document", exact=True)).to_be_visible()
         expect(panel.get_by_role("button", name="Stop")).to_be_visible()
+        expect(
+            panel.get_by_role("status", name="Loading computer preview", exact=True)
+        ).to_be_visible()
+        expect(panel.get_by_role("img", name="No computer preview available")).to_have_count(0)
+        expect(panel.get_by_text("Latest frame", exact=True)).to_have_count(0)
 
         attachment = _upload_frame(base_url, session_id)
         _seed_item(
@@ -125,6 +130,11 @@ def test_computer_use_live_frame_and_reload_parity(
         frame = panel.get_by_role("img", name="Latest TextEdit frame")
         expect(frame).to_be_visible(timeout=15_000)
         expect(frame).to_have_js_property("naturalWidth", 1)
+        expect(
+            panel.get_by_role("status", name="Loading computer preview", exact=True)
+        ).to_have_count(0)
+        expect(panel.get_by_text("Latest frame", exact=True)).to_have_count(0)
+        expect(panel.get_by_text("1 × 1", exact=True)).to_have_count(0)
 
         page.reload()
         restored_tab = page.get_by_role("tab", name="Computer")
@@ -137,5 +147,7 @@ def test_computer_use_live_frame_and_reload_parity(
             )
         ).to_be_visible(timeout=20_000)
         expect(restored_panel.get_by_role("img", name="Latest TextEdit frame")).to_be_visible()
+        expect(restored_panel.get_by_text("Latest frame", exact=True)).to_have_count(0)
+        expect(restored_panel.get_by_text("1 × 1", exact=True)).to_have_count(0)
     finally:
         _publish_status(base_url, session_id, "idle", response_id)
