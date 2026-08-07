@@ -20,6 +20,7 @@ from fastapi import (
 from fastapi.responses import Response
 
 from omnigent.entities import (
+    FILE_PURPOSE_USER_UPLOAD,
     Conversation,
     StoredFile,
 )
@@ -1245,7 +1246,11 @@ def register_resources_routes(
         total_bytes = 0
         for file_id in body.file_ids:
             stored = file_store.get(file_id, session_id=body.source_session_id)
-            if stored is None or not artifact_store.exists(stored.id):
+            if (
+                stored is None
+                or stored.purpose != FILE_PURPOSE_USER_UPLOAD
+                or not artifact_store.exists(stored.id)
+            ):
                 raise OmnigentError(
                     f"File '{file_id}' not found in source session",
                     code=ErrorCode.NOT_FOUND,

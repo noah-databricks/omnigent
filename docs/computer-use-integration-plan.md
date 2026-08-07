@@ -1,8 +1,22 @@
 # Native Computer Use Integration Plan
 
-**Status:** proposed
+**Status:** in progress
 **Baseline:** `origin/main` at `7efe05623b687db9373191d323d58687ec383fb0`
 **Tracking issue:** [omnigent-ai/omnigent#4327](https://github.com/omnigent-ai/omnigent/issues/4327)
+
+## Progress
+
+- **Step 0B (Codex discovery): complete.** Recorded fixtures and
+  `docs/computer-use-protocol-discovery.md` define provisional start,
+  authoritative completion, image, failure, and interruption behavior.
+- **Step 0A (Claude discovery): deferred.** The available Claude login uses an
+  API-key helper; built-in Computer Use requires an eligible claude.ai Pro/Max
+  login. No production Claude parser will be written from guessed events.
+- **Step 1 (artifact and conversation contract): complete.** Optional
+  presentation/attachment metadata, hidden bounded frame storage, retention,
+  ownership, migration/backfill, copy isolation, prompt/search isolation, and
+  cleanup are implemented and covered by focused tests.
+- **Steps 2–5:** pending.
 
 ## Summary
 

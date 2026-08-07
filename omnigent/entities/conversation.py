@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from omnigent.inner.native_attachments import UNRESOLVED_ATTACHMENT_MARKER_PATTERN
 
@@ -325,6 +325,65 @@ def synthesize_conversation_title(
     return collapsed[: max(0, limit - 1)].rstrip() + "…"
 
 
+class ComputerUsePresentation(BaseModel):
+    """Provider-neutral display metadata for a computer-use call.
+
+    This object is presentation-only. Runtime prompt reconstruction ignores it,
+    so adding or changing display metadata cannot alter tool execution.
+
+    :param kind: Fixed presentation discriminator, ``"computer_use"``.
+    :param provider: Native harness that emitted the call.
+    :param app_name: Optional bounded display name, e.g. ``"Safari"``.
+    :param app_id: Optional bounded platform id, e.g. ``"com.apple.Safari"``.
+    :param action_label: Optional bounded action label from the vendor event.
+    """
+
+    kind: Literal["computer_use"] = "computer_use"
+    provider: Literal["claude", "codex"]
+    app_name: str | None = Field(default=None, max_length=256)
+    app_id: str | None = Field(default=None, max_length=256)
+    action_label: str | None = Field(default=None, max_length=256)
+
+    @field_validator("app_name", "app_id", "action_label")
+    @classmethod
+    def normalize_optional_display_text(cls, value: str | None) -> str | None:
+        """Trim optional display text and collapse blank values to ``None``."""
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+
+class FunctionCallOutputAttachment(BaseModel):
+    """Display-only artifact reference attached to a tool result.
+
+    Unknown ``kind`` values and fields are preserved for forward compatibility.
+    The known ``computer_frame`` kind is validated strictly so an adapter cannot
+    create an incomplete or unsupported preview reference.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    kind: str = Field(min_length=1, max_length=64)
+    file_id: str | None = Field(default=None, min_length=1, max_length=128)
+    content_type: str | None = Field(default=None, min_length=1, max_length=128)
+    width: int | None = Field(default=None, gt=0, le=32_768)
+    height: int | None = Field(default=None, gt=0, le=32_768)
+
+    @model_validator(mode="after")
+    def validate_computer_frame(self) -> FunctionCallOutputAttachment:
+        """Require complete metadata for known computer-frame attachments."""
+        if self.kind != "computer_frame":
+            return self
+        if self.file_id is None:
+            raise ValueError("computer_frame attachment requires file_id")
+        if self.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("computer_frame attachment has unsupported content_type")
+        if self.width is None or self.height is None:
+            raise ValueError("computer_frame attachment requires width and height")
+        return self
+
+
 class FunctionCallData(BaseModel):
     """
     Data for a function_call item.
@@ -334,12 +393,15 @@ class FunctionCallData(BaseModel):
     :param arguments: JSON-encoded arguments string.
     :param call_id: Unique call identifier from the LLM,
         e.g. ``"call_abc123"``.
+    :param presentation: Optional display-only metadata. It is persisted and
+        sent to clients, but excluded from reconstructed model input.
     """
 
     agent: str = Field(serialization_alias="model")
     name: str
     arguments: str
     call_id: str
+    presentation: ComputerUsePresentation | None = None
 
 
 class FunctionCallOutputData(BaseModel):
@@ -349,10 +411,18 @@ class FunctionCallOutputData(BaseModel):
     :param call_id: The call_id this output corresponds to,
         e.g. ``"call_abc123"``.
     :param output: The tool's string result.
+    :param attachments: Optional display-only artifact references. They are
+        persisted and sent to clients, but excluded from reconstructed model
+        input and full-text search.
     """
 
     call_id: str
     output: str
+    attachments: list[FunctionCallOutputAttachment] = Field(
+        default_factory=list,
+        max_length=16,
+        exclude_if=lambda value: not value,
+    )
 
 
 class ErrorData(BaseModel):
