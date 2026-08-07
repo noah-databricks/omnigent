@@ -6158,6 +6158,65 @@ def test_forwarder_uploads_computer_frame_without_base64_event_payload() -> None
     ]
 
 
+def test_forwarder_normalizes_mislabeled_computer_frame_mime() -> None:
+    """Sky JPEG bytes survive a Codex image block mislabeled as PNG."""
+    jpeg = b"\xff\xd8\xff\xc0\x00\x11\x08\x00\x03\x00\x04" + b"\x00" * 10
+    encoded = base64.b64encode(jpeg).decode("ascii")
+    posted: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/resources/computer-use-frames"):
+            assert b'filename="computer-use-frame.jpg"' in request.content
+            assert b"Content-Type: image/jpeg" in request.content
+            assert jpeg in request.content
+            return httpx.Response(
+                201,
+                json={
+                    "kind": "computer_frame",
+                    "file_id": "file_frame_jpeg",
+                    "content_type": "image/jpeg",
+                    "width": 4,
+                    "height": 3,
+                },
+            )
+        posted.append(json.loads(request.content))
+        return httpx.Response(202, json={"queued": False})
+
+    item = {
+        "type": "mcpToolCall",
+        "id": "mcp_mislabeled_image",
+        "server": "node_repl",
+        "tool": "js",
+        "status": "completed",
+        "arguments": {"title": "Inspect TextEdit"},
+        "result": {
+            "content": [
+                {"type": "text", "text": "captured"},
+                {"type": "image", "data": encoded, "mimeType": "image/png"},
+            ],
+            "_meta": {
+                "codex/toolSurface": {
+                    "kind": "computerUse",
+                    "app": {"kind": "appId", "appId": "com.apple.TextEdit"},
+                }
+            },
+        },
+        "error": None,
+    }
+    asyncio.run(_replay_completed_item(item, handler))
+
+    output = posted[1]["data"]["item_data"]
+    assert output["attachments"] == [
+        {
+            "kind": "computer_frame",
+            "file_id": "file_frame_jpeg",
+            "content_type": "image/jpeg",
+            "width": 4,
+            "height": 3,
+        }
+    ]
+
+
 def test_forwarder_settles_interrupted_mcp_call_without_item_completion(tmp_path: Path) -> None:
     """An interrupted turn cannot leave a persisted MCP card running forever."""
     fixture = json.loads(

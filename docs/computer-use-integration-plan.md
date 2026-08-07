@@ -519,6 +519,18 @@ screen-control runner as an implicit fallback.
   tab persistence, minimum-width frame layout, user-selected tab behavior, frame
   zoom controls, and full-page reload parity.
 
+**Actual-harness validation (2026-08-07):** Codex CLI 0.145.0 with the installed
+`computer-use@openai-bundled` plugin completed a read-only TextEdit inspection
+through a real `codex-native` session. The panel auto-opened, surfaced the native
+per-app approval, preserved provider/app/action and terminal status, rendered a
+586 × 488 JPEG result frame, returned the expected document line, and retained
+the panel and frame after reload. This run exposed a real Sky/Codex MIME mismatch
+(JPEG bytes declared as PNG); the forwarder now detects PNG/JPEG/WebP signatures
+before upload and has regression coverage for the mismatch. Claude Code remains
+unvalidated because the available account uses `api_key_helper`; built-in
+Computer Use requires an eligible claude.ai Pro/Max login, and authentication was
+not changed for testing.
+
 ### Step 4: Capability and setup UX
 
 **Work:**

@@ -5535,6 +5535,23 @@ async def _upload_mcp_images(
                 index,
             )
             continue
+        content_type = _detected_mcp_image_content_type(decoded)
+        if content_type is None:
+            _logger.warning(
+                "Codex MCP image block has unsupported image bytes: call_id=%s index=%s",
+                call_id,
+                index,
+            )
+            continue
+        if content_type != image.content_type:
+            _logger.warning(
+                "Codex MCP image MIME disagrees with image bytes; using detected type: "
+                "call_id=%s index=%s declared=%s detected=%s",
+                call_id,
+                index,
+                image.content_type,
+                content_type,
+            )
         source_id = f"codex:{response_id}:{call_id}:{index}"
         try:
             response = await client.post(
@@ -5542,9 +5559,9 @@ async def _upload_mcp_images(
                 params={"source_id": source_id},
                 files={
                     "file": (
-                        f"computer-use-frame{extensions[image.content_type]}",
+                        f"computer-use-frame{extensions[content_type]}",
                         decoded,
-                        image.content_type,
+                        content_type,
                     )
                 },
             )
@@ -5580,6 +5597,17 @@ async def _upload_mcp_images(
         ):
             attachments.append(payload)
     return attachments
+
+
+def _detected_mcp_image_content_type(data: bytes) -> str | None:
+    """Identify supported MCP image bytes independently of untrusted metadata."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8"):
+        return "image/jpeg"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 async def _post_tool_item(
