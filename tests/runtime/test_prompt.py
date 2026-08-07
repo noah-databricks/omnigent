@@ -130,6 +130,12 @@ def test_history_replay_ignores_computer_use_presentation_and_attachments() -> N
         data=FunctionCallOutputData(
             call_id="c1",
             output="sanitized result",
+            presentation=ComputerUsePresentation(
+                provider="codex",
+                app_id="secret.output.app",
+            ),
+            presentation_final=True,
+            status="completed",
             attachments=[
                 FunctionCallOutputAttachment(
                     kind="computer_frame",

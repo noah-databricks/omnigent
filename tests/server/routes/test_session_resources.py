@@ -1722,6 +1722,50 @@ async def test_upload_and_list_session_files(
 
 
 @pytest.mark.asyncio
+async def test_upload_computer_use_frame_is_hidden_and_idempotent(
+    file_client: httpx.AsyncClient,
+) -> None:
+    """Native frame uploads return stable references without file-list clutter."""
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + b"\x00\x00\x00\rIHDR"
+        + (4).to_bytes(4, "big")
+        + (3).to_bytes(4, "big")
+    )
+    url = (
+        "/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/"
+        "resources/computer-use-frames?source_id=codex%3Aturn_1%3Acall_1%3A0"
+    )
+
+    first = await file_client.post(
+        url,
+        files={"file": ("frame.png", png, "image/png")},
+    )
+    second = await file_client.post(
+        url,
+        files={"file": ("frame.png", png, "image/png")},
+    )
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 201, second.text
+    assert second.json() == first.json()
+    attachment = first.json()
+    assert attachment["kind"] == "computer_frame"
+    assert attachment["width"] == 4
+    assert attachment["height"] == 3
+
+    listed = await file_client.get("/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/resources/files")
+    assert attachment["file_id"] not in {item["id"] for item in listed.json()["data"]}
+
+    content = await file_client.get(
+        "/v1/sessions/79b22ebd2309e48fdeb450c65611d51b/resources/files/"
+        f"{attachment['file_id']}/content"
+    )
+    assert content.status_code == 200
+    assert content.content == png
+
+
+@pytest.mark.asyncio
 async def test_hidden_frame_is_directly_readable_only_by_owning_session(
     file_client: httpx.AsyncClient,
     file_store: Any,

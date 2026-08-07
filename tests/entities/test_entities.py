@@ -181,6 +181,22 @@ def test_function_call_output_omits_empty_attachments() -> None:
     assert output.model_dump() == {"call_id": "call_1", "output": "done"}
 
 
+def test_function_call_output_can_finalize_presentation_and_status() -> None:
+    output = FunctionCallOutputData(
+        call_id="call_1",
+        output="failed",
+        presentation_final=True,
+        status="failed",
+    )
+
+    assert output.model_dump() == {
+        "call_id": "call_1",
+        "output": "failed",
+        "presentation_final": True,
+        "status": "failed",
+    }
+
+
 def test_computer_frame_attachment_round_trip() -> None:
     attachment = FunctionCallOutputAttachment(
         kind="computer_frame",

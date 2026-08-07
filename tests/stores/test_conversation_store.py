@@ -574,6 +574,12 @@ def test_computer_use_metadata_persists_and_hydrates(
                 data=FunctionCallOutputData(
                     call_id="call_computer",
                     output="sanitized result",
+                    presentation=ComputerUsePresentation(
+                        provider="codex",
+                        app_id="com.apple.TextEdit",
+                    ),
+                    presentation_final=True,
+                    status="completed",
                     attachments=[
                         FunctionCallOutputAttachment(
                             kind="computer_frame",
@@ -596,6 +602,10 @@ def test_computer_use_metadata_persists_and_hydrates(
     assert call_data.presentation.app_id == "com.apple.TextEdit"
     assert isinstance(output_data, FunctionCallOutputData)
     assert output_data.attachments[0].file_id == "f" * 32
+    assert output_data.presentation is not None
+    assert output_data.presentation.app_id == "com.apple.TextEdit"
+    assert output_data.presentation_final is True
+    assert output_data.status == "completed"
 
 
 def test_append_tool_output_with_nul_bytes(

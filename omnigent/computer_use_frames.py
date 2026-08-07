@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 from dataclasses import dataclass
 
 from omnigent.entities import (
@@ -233,6 +234,7 @@ def store_computer_use_frame(
     data: bytes,
     content_type: str,
     limits: ComputerUseFrameLimits | None = None,
+    dedup_key: str | None = None,
 ) -> FunctionCallOutputAttachment:
     """Validate, store, and reference one hidden Computer Use preview frame.
 
@@ -244,8 +246,37 @@ def store_computer_use_frame(
         raise ValueError("computer frame requires a session_id")
     effective_limits = limits or configured_computer_use_frame_limits()
     width, height = _validate_frame(data, content_type, effective_limits)
+    filename = f"computer-use-frame{_EXTENSIONS[content_type]}"
+    if dedup_key is not None:
+        source_digest = hashlib.sha256(dedup_key.encode("utf-8")).digest()
+        digest = hashlib.sha256(source_digest + data).hexdigest()[:32]
+        filename = f"computer-use-frame-{digest}{_EXTENSIONS[content_type]}"
+        after: str | None = None
+        while True:
+            page = file_store.list(
+                session_id=session_id,
+                purpose=FILE_PURPOSE_COMPUTER_USE_FRAME,
+                order="asc",
+                limit=1_000,
+                after=after,
+            )
+            for existing in page.data:
+                if existing.filename != filename or existing.content_type != content_type:
+                    continue
+                if artifact_store.exists(existing.id):
+                    return FunctionCallOutputAttachment(
+                        kind="computer_frame",
+                        file_id=existing.id,
+                        content_type=content_type,
+                        width=width,
+                        height=height,
+                    )
+                file_store.delete(existing.id, session_id=session_id)
+            if not page.has_more or page.last_id is None:
+                break
+            after = page.last_id
     stored = file_store.create(
-        filename=f"computer-use-frame{_EXTENSIONS[content_type]}",
+        filename=filename,
         bytes=len(data),
         content_type=content_type,
         session_id=session_id,

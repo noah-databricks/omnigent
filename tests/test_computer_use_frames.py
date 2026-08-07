@@ -120,6 +120,35 @@ def test_store_frame_is_hidden_and_session_owned(
     ] == [stored.id]
 
 
+def test_store_frame_dedup_key_reuses_hidden_artifact(
+    file_store: SqlAlchemyFileStore,
+    artifact_store: MemoryArtifactStore,
+) -> None:
+    first = store_computer_use_frame(
+        file_store=file_store,
+        artifact_store=artifact_store,
+        session_id=_SESSION,
+        data=_png(7, 5),
+        content_type="image/png",
+        dedup_key="codex:turn_1:call_1:0",
+    )
+    second = store_computer_use_frame(
+        file_store=file_store,
+        artifact_store=artifact_store,
+        session_id=_SESSION,
+        data=_png(7, 5),
+        content_type="image/png",
+        dedup_key="codex:turn_1:call_1:0",
+    )
+
+    assert second == first
+    frames = file_store.list(
+        session_id=_SESSION,
+        purpose=FILE_PURPOSE_COMPUTER_USE_FRAME,
+    ).data
+    assert [frame.id for frame in frames] == [first.file_id]
+
+
 @pytest.mark.parametrize(
     ("data", "content_type", "limits", "message"),
     [

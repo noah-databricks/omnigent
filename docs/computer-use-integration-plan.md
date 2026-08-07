@@ -16,7 +16,12 @@
   presentation/attachment metadata, hidden bounded frame storage, retention,
   ownership, migration/backfill, copy isolation, prompt/search isolation, and
   cleanup are implemented and covered by focused tests.
-- **Steps 2–5:** pending.
+- **Step 2B (Codex adapter): complete.** Generic MCP calls now preserve live
+  start/progress/terminal lifecycle, recorded Computer Use metadata refines the
+  provisional start classification, image blocks use idempotent hidden-frame
+  uploads, and interrupted turns settle calls that receive no item completion.
+- **Step 2A (Claude adapter): deferred** with Step 0A until eligible fixture
+  discovery is possible. **Steps 3–5:** pending.
 
 ## Summary
 
@@ -607,20 +612,20 @@ coverage, and Playwright happy path. All commits are DCO-signed.
 
 ## Security and privacy review checklist
 
-- [ ] Only a user's installed vendor runtime performs computer control.
-- [ ] No vendor binary/plugin is redistributed.
-- [ ] No private API, bundle patch, or approval bypass is required.
-- [ ] Frame type, dimensions, decoded bytes, and per-session retention are bounded.
-- [ ] Frame bytes are absent from conversation rows, model prompts, logs, search,
+- [x] Only a user's installed vendor runtime performs computer control.
+- [x] No vendor binary/plugin is redistributed.
+- [x] No private API, bundle patch, or approval bypass is required.
+- [x] Frame type, dimensions, decoded bytes, and per-session retention are bounded.
+- [x] Frame bytes are absent from conversation rows, model prompts, logs, search,
       metrics, and IPC.
-- [ ] Every artifact read is checked against the owning session and caller access.
+- [x] Every artifact read is checked against the owning session and caller access.
 - [ ] Shared-session behavior is explicit: users with session read access may see
       retained preview frames just as they see the session transcript.
-- [ ] Normal session deletion and retention cleanup remove frame metadata and bytes.
-- [ ] App names, action labels, error text, filenames, and MIME metadata are treated
+- [x] Normal session deletion and retention cleanup remove frame metadata and bytes.
+- [x] App names, action labels, error text, filenames, and MIME metadata are treated
       as untrusted input.
 - [ ] The UI never implies that a missing preview means the native harness stopped.
-- [ ] Sandbox changes, if any, are narrow and independently reviewed.
+- [x] No Omnigent sandbox change is required by the Codex adapter.
 - [ ] Electron IPC is context-isolated, origin-validated, and session-scoped.
 
 ## Risks and mitigations

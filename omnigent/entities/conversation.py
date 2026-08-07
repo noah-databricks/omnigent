@@ -414,6 +414,13 @@ class FunctionCallOutputData(BaseModel):
     :param attachments: Optional display-only artifact references. They are
         persisted and sent to clients, but excluded from reconstructed model
         input and full-text search.
+    :param presentation: Optional authoritative presentation metadata learned
+        from a terminal tool result. This can refine provisional metadata on
+        the matching function call.
+    :param presentation_final: Whether the output authoritatively resolves the
+        call's presentation. When true with no ``presentation``, clients clear
+        any provisional presentation from the matching function call.
+    :param status: Optional terminal tool status used only for presentation.
     """
 
     call_id: str
@@ -422,6 +429,15 @@ class FunctionCallOutputData(BaseModel):
         default_factory=list,
         max_length=16,
         exclude_if=lambda value: not value,
+    )
+    presentation: ComputerUsePresentation | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    presentation_final: bool = Field(default=False, exclude_if=lambda value: not value)
+    status: Literal["completed", "failed", "interrupted"] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
     )
 
 
