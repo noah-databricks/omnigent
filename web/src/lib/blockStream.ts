@@ -315,6 +315,9 @@ function* beginResponse(state: ReducerState, response: Response): Generator<AnyB
         callId: ex.callId,
         agentName: ex.agentName,
         output: ex.output,
+        attachments: [],
+        presentation: ex.presentation,
+        presentationFinal: false,
       } satisfies ToolResultBlock;
     }
   }
@@ -458,6 +461,9 @@ function* processEvent(state: ReducerState, event: StreamEvent): Generator<AnyBl
             callId: ex.callId,
             agentName: ex.agentName,
             output: ex.output,
+            attachments: [],
+            presentation: ex.presentation,
+            presentationFinal: false,
           } satisfies ToolResultBlock;
         }
       }
@@ -524,6 +530,7 @@ function* processEvent(state: ReducerState, event: StreamEvent): Generator<AnyBl
           agentName: event.agentName,
           executedBy: "server",
           output: null,
+          presentation: event.presentation,
         };
         state.toolExecutionsByCallId.set(event.callId, execution);
         state.pendingTools.set(event.callId, execution);
@@ -542,6 +549,7 @@ function* processEvent(state: ReducerState, event: StreamEvent): Generator<AnyBl
         agentName: event.agentName,
         executedBy: "server",
         output: null,
+        presentation: event.presentation,
       };
       state.pendingTools.set(event.callId, execution);
       state.toolExecutionsByCallId.set(event.callId, execution);
@@ -596,6 +604,10 @@ function* processEvent(state: ReducerState, event: StreamEvent): Generator<AnyBl
         callId: event.callId,
         agentName: ex?.agentName ?? "",
         output: event.output,
+        attachments: event.attachments ?? [],
+        presentation: event.presentation,
+        presentationFinal: event.presentationFinal === true,
+        status: event.status,
       } satisfies ToolResultBlock;
       // Drop from `pendingTools` (current turn only — the live tool is
       // still pending) so the next text_delta / response_created sweep

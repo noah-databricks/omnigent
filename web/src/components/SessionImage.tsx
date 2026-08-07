@@ -49,21 +49,57 @@ export function SessionImage({ path, alt, className }: SessionImageProps) {
   // Host config is installed once at embed startup and never changes, so it's
   // safe to branch on it before any hooks. Hooks live in the embedded child.
   if (!getOmnigentHostConfig().fetcher) {
-    return (
-      <div className={PREVIEW_BOX}>
-        <ZoomableImage
-          src={path}
-          alt={alt}
-          className={cn(PREVIEW_IMAGE, className)}
-          // Offscreen history images cost nothing until scrolled to, and
-          // decoding off the main thread keeps the swap from blocking paint.
-          loading="lazy"
-          decoding="async"
-        />
-      </div>
-    );
+    return <StandaloneSessionImage path={path} alt={alt} className={className} />;
   }
   return <EmbeddedSessionImage path={path} alt={alt} className={className} />;
+}
+
+function ImageErrorFallback({ alt, className }: { alt: string; className?: string }) {
+  return (
+    <div
+      role="img"
+      aria-label={alt}
+      className={cn(
+        "flex h-64 min-w-0 items-center justify-center gap-1.5 rounded-md border border-border bg-muted px-3 text-sm text-muted-foreground",
+        className,
+      )}
+    >
+      <ImageIcon className="size-4 shrink-0" />
+      <span className="truncate">{alt}</span>
+    </div>
+  );
+}
+
+function StandaloneSessionImage({ path, alt, className }: SessionImageProps) {
+  const [state, setState] = useState<LoadState>(path === undefined ? "error" : "loading");
+
+  useEffect(() => setState(path === undefined ? "error" : "loading"), [path]);
+  if (state === "error") return <ImageErrorFallback alt={alt} className={className} />;
+
+  return (
+    <div className={cn(PREVIEW_BOX, "relative")}>
+      <ZoomableImage
+        src={path}
+        alt={alt}
+        className={cn(PREVIEW_IMAGE, className)}
+        // Offscreen history images cost nothing until scrolled to, and
+        // decoding off the main thread keeps the swap from blocking paint.
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setState("loaded")}
+        onError={() => setState("error")}
+      />
+      {state === "loading" && (
+        <div
+          role="status"
+          aria-label="Loading image"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center bg-muted/40 text-muted-foreground"
+        >
+          <Spinner />
+        </div>
+      )}
+    </div>
+  );
 }
 
 type LoadState = "loading" | "loaded" | "error";
@@ -158,19 +194,7 @@ function EmbeddedSessionImage({ path, alt, className }: SessionImageProps) {
   }, [path]);
 
   if (state === "error") {
-    return (
-      <div
-        role="img"
-        aria-label={alt}
-        className={cn(
-          "flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1.5 text-sm text-muted-foreground",
-          className,
-        )}
-      >
-        <ImageIcon className="size-3.5 shrink-0" />
-        <span className="truncate">{alt}</span>
-      </div>
-    );
+    return <ImageErrorFallback alt={alt} className={className} />;
   }
 
   if (state === "loading" || !blobUrl) {

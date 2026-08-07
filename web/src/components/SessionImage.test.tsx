@@ -9,7 +9,7 @@
 // and what hostFetch resolves to; URL.createObjectURL/revokeObjectURL are
 // stubbed because jsdom lacks them.
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOmnigentHostConfig = vi.fn();
@@ -74,6 +74,15 @@ describe("SessionImage (standalone, no host fetcher)", () => {
     render(<SessionImage path="/v1/sessions/a/files/x/content" alt="diagram" />);
     const box = screen.getByRole("img", { name: "diagram" }).closest("div");
     expect(box).toHaveClass("h-64");
+  });
+
+  it("replaces an expired or missing image with a bounded fallback", () => {
+    render(<SessionImage path="/expired" alt="expired frame" />);
+    fireEvent.error(screen.getByRole("img", { name: "expired frame" }));
+
+    const fallback = screen.getByRole("img", { name: "expired frame" });
+    expect(fallback).not.toHaveAttribute("src");
+    expect(fallback).toHaveClass("h-64");
   });
 });
 

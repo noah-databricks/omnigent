@@ -65,6 +65,11 @@ import { useServerInfo } from "@/lib/CapabilitiesContext";
 import { isSingleUserMode } from "@/lib/capabilities";
 import { isCurrentServerLocal } from "@/lib/serverOrigin";
 import { useChatStore } from "@/store/chatStore";
+import {
+  computerUseViewModelsEqual,
+  deriveComputerUseViewModel,
+  type ComputerUseViewModel,
+} from "@/lib/computerUse";
 import { livenessRowFromSession, useSessionLiveness } from "@/hooks/useSessionLiveness";
 import { useResizableInlinePanel } from "@/hooks/useResizableInlinePanel";
 import { ChatHeader } from "./ChatHeader";
@@ -92,6 +97,7 @@ import { ForkSessionDialog } from "./ForkSessionDialog";
 import { ForkDialogContextProvider, type ForkDialogContextValue } from "./ForkDialogContext";
 import { InlineTerminalsSection } from "./InlineTerminalsSection";
 import { WorkspacePanel } from "./WorkspacePanel";
+import { ComputerUsePanel } from "@/components/ComputerUsePanel/ComputerUsePanel";
 import { SessionRail } from "./SessionRail";
 import type { RightRailTab } from "./railTabs";
 
@@ -263,6 +269,7 @@ export function AppShell() {
   const [subagentsPanelOpen, setSubagentsPanelOpen] = useState(false);
   const [shellsPanelOpen, setShellsPanelOpen] = useState(false);
   const [todosPanelOpen, setTodosPanelOpen] = useState(false);
+  const [computerPanelOpen, setComputerPanelOpen] = useState(false);
   // The right "Workspace" rail (WorkspacePanel) remembers its open/closed
   // state per session. A brand-new session (no saved `open`) follows the
   // Appearance "Workspace panel" default; reopening a session restores how
@@ -371,6 +378,28 @@ export function AppShell() {
   const terminalFirst = sessionLabels["omnigent.ui"] === "terminal";
   const isClaudeNative = sessionLabels["omnigent.wrapper"] === "claude-code-native-ui";
   const todos = useChatStore((s) => s.todos);
+  // Computer-use blocks update independently of streamed assistant text. Keep
+  // a structural snapshot so token deltas do not rerender the entire shell.
+  const [computerUse, setComputerUse] = useState<ComputerUseViewModel | null>(() => {
+    const chat = useChatStore.getState();
+    return chat.conversationId === null || chat.conversationId === conversationId
+      ? deriveComputerUseViewModel(chat.blocks)
+      : null;
+  });
+  const autoOpenedComputerUseSessionsRef = useRef(new Set<string>());
+  useEffect(() => {
+    const update = (chat: ReturnType<typeof useChatStore.getState>) => {
+      const belongsToRoute = chat.conversationId === null || chat.conversationId === conversationId;
+      const next = deriveComputerUseViewModel(belongsToRoute ? chat.blocks : []);
+      setComputerUse((current) => (computerUseViewModelsEqual(current, next) ? current : next));
+    };
+    update(useChatStore.getState());
+    return useChatStore.subscribe((state, previous) => {
+      if (state.blocks !== previous.blocks || state.conversationId !== previous.conversationId) {
+        update(state);
+      }
+    });
+  }, [conversationId]);
   // The session.todos contract is harness-agnostic; show Tasks when it has data.
   const todosSupported = todos.length > 0;
   // Native-CLI wrapper of either family. Keys harness behavior gates
@@ -543,8 +572,16 @@ export function AppShell() {
         // sessions don't flash the tab.
         terminals: !hideTerminalsTab && railTerminals.length > 0,
         todos: todosSupported && todos.length > 0,
+        computer: computerUse !== null,
       }) as const,
-    [showFilesPanel, hideTerminalsTab, railTerminals.length, todosSupported, todos.length],
+    [
+      showFilesPanel,
+      hideTerminalsTab,
+      railTerminals.length,
+      todosSupported,
+      todos.length,
+      computerUse,
+    ],
   );
   // Whether the rail has anything at all to show. When false the workspace
   // card doesn't mount and the header hides its collapse toggle — a
@@ -559,9 +596,9 @@ export function AppShell() {
   // convergent even when several tabs vanish at once.
   useEffect(() => {
     if (railTabsAvailable[rightRailTab]) return;
-    const next = (["files", "subagents", "terminals", "todos", "browser"] as const).find(
-      (t) => railTabsAvailable[t],
-    );
+    const next = (
+      ["files", "subagents", "terminals", "todos", "computer", "browser"] as const
+    ).find((t) => railTabsAvailable[t]);
     if (next) setRightRailTab(next);
   }, [railTabsAvailable, rightRailTab]);
 
@@ -716,6 +753,7 @@ export function AppShell() {
     setSubagentsPanelOpen(false);
     setShellsPanelOpen(false);
     setTodosPanelOpen(false);
+    setComputerPanelOpen(false);
     setFilesPanelShowHidden(false);
     if (!conversationId) {
       // No session → no rail; false (not the open default) so rail-gated
@@ -894,11 +932,14 @@ export function AppShell() {
       setFilesPanelOpen(false); // close files drawer so the viewer is unobscured
       setSubagentsPanelOpen(false); // close mobile agents drawer
       setTodosPanelOpen(false); // close mobile tasks drawer
+      setComputerPanelOpen(false); // close mobile Computer drawer
       // Pull the rail to the Files tab when parked on a tab where the viewer
       // won't render (Terminals, Subagents, Todos). The Files tab surfaces the
       // FileViewer inline, so leave it undisturbed.
       setRightRailTab((prev) =>
-        prev === "terminals" || prev === "subagents" || prev === "todos" ? "files" : prev,
+        prev === "terminals" || prev === "subagents" || prev === "todos" || prev === "computer"
+          ? "files"
+          : prev,
       );
       // Reveal the rail so the viewer is actually visible — a session the user
       // collapsed (or one that started collapsed via the Appearance default)
@@ -1109,6 +1150,7 @@ export function AppShell() {
     setSubagentsPanelOpen(false); // close mobile agents drawer
     setShellsPanelOpen(false); // close mobile shells drawer
     setTodosPanelOpen(false); // close mobile tasks drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setPanelInitialKey(key);
   }
 
@@ -1129,6 +1171,7 @@ export function AppShell() {
       setSubagentsPanelOpen(false);
       setShellsPanelOpen(false);
       setTodosPanelOpen(false);
+      setComputerPanelOpen(false);
       setRightPanelOpen(true);
       if (conversationId) writeSessionWorkspaceState(conversationId, { open: true });
     },
@@ -1177,6 +1220,7 @@ export function AppShell() {
     setSubagentsPanelOpen(false); // close mobile agents drawer
     setShellsPanelOpen(false); // close mobile shells drawer
     setTodosPanelOpen(false); // close mobile tasks drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setExecutionLogsKey(key);
   }
 
@@ -1191,6 +1235,7 @@ export function AppShell() {
     setSubagentsPanelOpen(false); // close mobile agents drawer
     setShellsPanelOpen(false); // close mobile shells drawer
     setTodosPanelOpen(false); // close mobile tasks drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setFilesPanelOpen(true);
   }
 
@@ -1204,6 +1249,7 @@ export function AppShell() {
     setFilesPanelOpen(false); // close files drawer
     setShellsPanelOpen(false); // close mobile shells drawer
     setTodosPanelOpen(false); // close mobile tasks drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setSubagentsPanelOpen(true);
   }
 
@@ -1218,6 +1264,7 @@ export function AppShell() {
     setFilesPanelOpen(false); // close files drawer
     setSubagentsPanelOpen(false); // close mobile agents drawer
     setTodosPanelOpen(false); // close mobile tasks drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setShellsPanelOpen(true);
   }
 
@@ -1231,8 +1278,46 @@ export function AppShell() {
     setFilesPanelOpen(false); // close files drawer
     setSubagentsPanelOpen(false); // close mobile agents drawer
     setShellsPanelOpen(false); // close mobile shells drawer
+    setComputerPanelOpen(false); // close mobile Computer drawer
     setTodosPanelOpen(true);
   }
+
+  function openComputerPanel() {
+    setSelectedFilePath(null);
+    clearFileViewerUrl();
+    setPanelInitialKey(null);
+    setExecutionLogsKey(null);
+    setFilesPanelOpen(false);
+    setSubagentsPanelOpen(false);
+    setShellsPanelOpen(false);
+    setTodosPanelOpen(false);
+    setComputerPanelOpen(true);
+  }
+
+  // Surface the first running computer action once per session. Later actions
+  // never steal focus after the user has chosen another tab.
+  useEffect(() => {
+    if (!conversationId || computerUse?.status !== "running") return;
+    if (autoOpenedComputerUseSessionsRef.current.has(conversationId)) return;
+    autoOpenedComputerUseSessionsRef.current.add(conversationId);
+
+    setSelectedFilePath(null);
+    setFileViewerCommentsOpen(false);
+    clearFileViewerUrl();
+    setSelectedTerminalKey(null);
+    if (isMobileViewport()) {
+      setPanelInitialKey(null);
+      setExecutionLogsKey(null);
+      setFilesPanelOpen(false);
+      setSubagentsPanelOpen(false);
+      setShellsPanelOpen(false);
+      setTodosPanelOpen(false);
+      setComputerPanelOpen(true);
+      return;
+    }
+    setRightRailTab("computer");
+    setRightPanelOpen(true);
+  }, [clearFileViewerUrl, computerUse, conversationId, setPanelInitialKey]);
 
   function openMainExecutionLog() {
     // Mobile FAB → "Execution logs" jumps straight to the main thread.
@@ -1446,6 +1531,7 @@ export function AppShell() {
                     subagentsPanelOpen,
                     shellsPanelOpen,
                     todosPanelOpen,
+                    computerPanelOpen,
                     hideTerminalsTab,
                     // Mobile: reachable when a shell exists OR the agent
                     // declares shell access (so the drawer's "+ New shell" row
@@ -1457,6 +1543,8 @@ export function AppShell() {
                     todosSupported,
                     todosCompleted,
                     todosTotal: todos.length,
+                    computerUseAvailable: computerUse !== null,
+                    computerUseRunning: computerUse?.status === "running",
                     debugMode,
                     changedCount,
                     subagentsWorking,
@@ -1465,6 +1553,7 @@ export function AppShell() {
                     onOpenShells: openShellsPanel,
                     onOpenSubagents: openSubagentsPanel,
                     onOpenTodos: openTodosPanel,
+                    onOpenComputer: openComputerPanel,
                     onOpenMainExecutionLog: openMainExecutionLog,
                   }}
                 />
@@ -1506,6 +1595,7 @@ export function AppShell() {
                     onRightRailTabChange={handleRightRailTabChange}
                     showFilesPanel={showFilesPanel}
                     showBrowserTab={railTabsAvailable.browser}
+                    computerUse={computerUse}
                     changedCount={changedCount}
                     showShellsTab={railTabsAvailable.terminals}
                     terminalsLength={railTerminals.length}
@@ -1615,6 +1705,16 @@ export function AppShell() {
                   testId="todos-panel-drawer"
                 >
                   <TodoPanel frameless />
+                </MobilePanelDrawer>
+              )}
+              {conversationId && (
+                <MobilePanelDrawer
+                  open={computerPanelOpen}
+                  title="Computer"
+                  onClose={() => setComputerPanelOpen(false)}
+                  testId="computer-panel-drawer"
+                >
+                  <ComputerUsePanel conversationId={conversationId} viewModel={computerUse} />
                 </MobilePanelDrawer>
               )}
               {/* Mobile-only push panel — on desktop the viewer lives inside the inline aside. */}

@@ -21,7 +21,12 @@
   provisional start classification, image blocks use idempotent hidden-frame
   uploads, and interrupted turns settle calls that receive no item completion.
 - **Step 2A (Claude adapter): deferred** with Step 0A until eligible fixture
-  discovery is possible. **Steps 3–5:** pending.
+  discovery is possible.
+- **Step 3 (provider-neutral web UI): complete.** The shared Computer panel now
+  derives live and hydrated state, renders the latest retained frame, auto-opens
+  once, exposes terminal and unavailable states, supports mobile, and delegates
+  Stop through the existing interrupt path.
+- **Steps 4–5:** pending.
 
 ## Summary
 
@@ -493,6 +498,26 @@ screen-control runner as an implicit fallback.
   than a broken image or render crash.
 - No provider-specific component is required to render Claude versus Codex.
 - Colocated Vitest coverage and a synthetic Playwright happy path pass.
+
+**Implementation status (2026-08-07): complete.**
+
+- History and SSE items carry optional presentation, attachment, lifecycle, and
+  status fields into one provider-neutral view model.
+- Desktop and mobile workspace surfaces expose the same Computer panel. The first
+  running action auto-opens it once per session, later actions retain the latest
+  frame without stealing focus, and terminal output corrects provisional
+  classifications.
+- The panel renders running, completed, failed, interrupted, and unavailable
+  states; loading, missing, expired, and failed frame loads remain bounded. Stop
+  calls the existing chat-store interrupt action.
+- `pnpm --dir web type-check`, `pnpm --dir web lint`, and 216 focused Vitest tests
+  pass. The full Vitest run passes 5,396 tests and has three unrelated
+  `NewChatDialog.test.tsx` failures that reproduce unchanged at the base commit.
+- `uv run pytest tests/e2e_ui/computer_use/test_computer_use_panel.py -q` passes
+  the synthetic live-stream, hidden-frame, and reload-parity path.
+- Headed macOS inspection confirms the completed panel, accessible status text,
+  tab persistence, minimum-width frame layout, user-selected tab behavior, frame
+  zoom controls, and full-page reload parity.
 
 ### Step 4: Capability and setup UX
 

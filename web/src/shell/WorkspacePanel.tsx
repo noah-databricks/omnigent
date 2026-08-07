@@ -8,6 +8,7 @@ import {
   Loader2Icon,
   MaximizeIcon,
   MinimizeIcon,
+  MonitorIcon,
   PlusIcon,
   SquareTerminalIcon,
   TerminalIcon,
@@ -30,6 +31,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TerminalView } from "@/components/blocks/TerminalView";
 import { BrowserPane } from "@/components/BrowserPane/BrowserPane";
+import { ComputerUsePanel } from "@/components/ComputerUsePanel/ComputerUsePanel";
+import type { ComputerUseViewModel } from "@/lib/computerUse";
 import { useSessionAgent } from "@/hooks/useAgents";
 import type { SessionLiveness } from "@/hooks/useSessionLiveness";
 import { terminalTabKey, useCreateTerminal, useTerminals } from "@/hooks/useTerminals";
@@ -519,6 +522,8 @@ interface WorkspacePanelProps {
   /** Whether the Browser tab is available — Electron shell only (hidden in a
    *  plain web build, which has no embedded WebContentsView). */
   showBrowserTab: boolean;
+  /** Latest classified computer-use activity; null hides the Computer tab. */
+  computerUse: ComputerUseViewModel | null;
   /** Count of changed files, shown as the Files tab badge. */
   changedCount: number;
   /**
@@ -620,6 +625,7 @@ export function WorkspacePanel({
   onRightRailTabChange,
   showFilesPanel,
   showBrowserTab,
+  computerUse,
   changedCount,
   showShellsTab,
   terminalsLength,
@@ -795,6 +801,20 @@ export function WorkspacePanel({
                 </TabsTrigger>
               </WorkspaceTabTooltip>
             )}
+            {computerUse && (
+              <WorkspaceTabTooltip label="Computer">
+                <TabsTrigger
+                  value="computer"
+                  aria-label={computerUse.status === "running" ? "Computer running" : "Computer"}
+                  className="size-8 shrink-0 rounded-md p-0 hover:bg-muted"
+                >
+                  <MonitorIcon
+                    className={cn("size-4", computerUse.status === "running" && "animate-pulse")}
+                  />
+                  <span className="sr-only">Computer</span>
+                </TabsTrigger>
+              </WorkspaceTabTooltip>
+            )}
             {showBrowserTab && (
               <WorkspaceTabTooltip label="Browser">
                 <TabsTrigger
@@ -908,6 +928,8 @@ export function WorkspacePanel({
             onCommentsOpenChange={onCommentsOpenChange}
             sort={filesPanelSort}
           />
+        ) : rightRailTab === "computer" && computerUse ? (
+          <ComputerUsePanel conversationId={conversationId} viewModel={computerUse} />
         ) : rightRailTab === "browser" && showBrowserTab ? (
           // Embedded browser (Electron only) — BrowserPane self-gates and
           // measures this rail slot to position the native view over it.

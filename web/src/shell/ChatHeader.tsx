@@ -6,6 +6,7 @@ import {
   InfoIcon,
   ListIcon,
   ListTodoIcon,
+  MonitorIcon,
   PanelLeftIcon,
   PanelRightCloseIcon,
   PanelRightIcon,
@@ -53,6 +54,8 @@ interface MobileSessionMenuProps {
   shellsPanelOpen: boolean;
   /** True while the mobile tasks drawer is open. */
   todosPanelOpen: boolean;
+  /** True while the mobile Computer drawer is open. */
+  computerPanelOpen: boolean;
   /** Hide the Shells entry (claude-native sub-agents only). */
   hideTerminalsTab: boolean;
   /** Whether the Shells entry is available. */
@@ -65,6 +68,10 @@ interface MobileSessionMenuProps {
   todosCompleted: number;
   /** Total todo count (Tasks entry badge denominator + visibility). */
   todosTotal: number;
+  /** Whether classified computer-use activity is available. */
+  computerUseAvailable: boolean;
+  /** Whether the latest classified computer-use action is running. */
+  computerUseRunning: boolean;
   /** Debug mode — surfaces the Logs entry. */
   debugMode: boolean;
   /** Changed-file count (Files entry badge). */
@@ -84,6 +91,8 @@ interface MobileSessionMenuProps {
   onOpenSubagents: () => void;
   /** Open the mobile tasks drawer. */
   onOpenTodos: () => void;
+  /** Open the mobile Computer drawer. */
+  onOpenComputer: () => void;
   /** Open the main execution-log push panel. */
   onOpenMainExecutionLog: () => void;
 }
@@ -422,6 +431,7 @@ export function ChatHeader({
           !mobileMenu.subagentsPanelOpen &&
           !mobileMenu.shellsPanelOpen &&
           !mobileMenu.todosPanelOpen &&
+          !mobileMenu.computerPanelOpen &&
           (hasRailContent || mobileMenu.debugMode) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -505,6 +515,22 @@ export function ChatHeader({
                     <span className={cn(TAB_BADGE_BASE, "ml-auto bg-muted text-muted-foreground")}>
                       {mobileMenu.todosCompleted}/{mobileMenu.todosTotal}
                     </span>
+                  </DropdownMenuItem>
+                )}
+                {mobileMenu.computerUseAvailable && (
+                  <DropdownMenuItem
+                    onSelect={mobileMenu.onOpenComputer}
+                    className="gap-2.5 px-2.5 py-2 text-ui"
+                  >
+                    <MonitorIcon
+                      className={cn("size-4", mobileMenu.computerUseRunning && "animate-pulse")}
+                    />
+                    Computer
+                    {mobileMenu.computerUseRunning && (
+                      <span className={cn(TAB_BADGE_BASE, "ml-auto bg-primary/10 text-primary")}>
+                        Live
+                      </span>
+                    )}
                   </DropdownMenuItem>
                 )}
                 {mobileMenu.debugMode && (
