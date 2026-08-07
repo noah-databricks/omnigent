@@ -47,10 +47,23 @@ describe("ComputerUsePanel", () => {
       "src",
       "/v1/sessions/conv%2F1/resources/files/file%2Fframe%201/content",
     );
-    expect(screen.getByText("1280 × 800")).toBeInTheDocument();
+    expect(screen.queryByText("Latest frame")).toBeNull();
+    expect(screen.queryByText("1280 × 800")).toBeNull();
   });
 
-  it("shows a bounded no-frame fallback instead of a broken image", () => {
+  it("shows a loader while the first frame is pending", () => {
+    render(
+      <ComputerUsePanel
+        conversationId="conv_1"
+        viewModel={{ ...base, status: "running", frame: null }}
+      />,
+    );
+
+    expect(screen.getByRole("status", { name: "Loading computer preview" })).toHaveClass("h-64");
+    expect(screen.queryByRole("img", { name: "No computer preview available" })).toBeNull();
+  });
+
+  it("shows a bounded no-frame fallback after an action finishes without an image", () => {
     render(<ComputerUsePanel conversationId="conv_1" viewModel={{ ...base, frame: null }} />);
 
     expect(screen.getByRole("img", { name: "No computer preview available" })).toHaveClass("h-64");

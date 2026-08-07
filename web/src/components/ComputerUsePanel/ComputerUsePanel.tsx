@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { SessionImage } from "@/components/SessionImage";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import type { ComputerUseStatus, ComputerUseViewModel } from "@/lib/computerUse";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chatStore";
@@ -96,20 +97,20 @@ export function ComputerUsePanel({ conversationId, viewModel, className }: Compu
       </div>
 
       <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-border bg-muted/30">
-        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs text-muted-foreground">
-          <span>Latest frame</span>
-          {frame && (
-            <span className="shrink-0 tabular-nums">
-              {frame.width} × {frame.height}
-            </span>
-          )}
-        </div>
         {frame ? (
           <SessionImage
             path={framePath}
             alt={`Latest ${app} frame`}
             className="w-full rounded-none object-contain"
           />
+        ) : status === "running" ? (
+          <div
+            role="status"
+            aria-label="Loading computer preview"
+            className="flex h-64 min-w-0 items-center justify-center text-muted-foreground"
+          >
+            <Spinner />
+          </div>
         ) : (
           <div
             role="img"
