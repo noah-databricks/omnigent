@@ -171,12 +171,14 @@ should follow the same model.
 
 ### Sandbox
 
-Native harnesses default to Omnigent's macOS Seatbelt sandbox. Vendor helpers may
-need macOS Accessibility, Screen Recording, helper-process communication, or
-services that the current profile denies. Installed and enabled does not therefore
-imply usable. Discovery must compare the default Seatbelt behavior with an
-explicitly unsandboxed test, then prefer the narrowest additional allowance that
-can be justified.
+The generated `claude-native-ui` and `codex-native-ui` wrapper specs run as
+`caller_process` with `sandbox.type: none`; Omnigent does not add a macOS Seatbelt
+layer around those vendor-native terminals. The vendor runtime still applies its
+own command sandbox and approval policy, while computer use is gated separately
+by vendor per-app approval and macOS Accessibility/Screen Recording permissions.
+Installed and enabled therefore does not imply usable, but discovery should not
+attribute an OS-permission or vendor-sandbox failure to an Omnigent Seatbelt
+profile that is not present.
 
 ## Proposed data contract
 
@@ -263,7 +265,8 @@ committing Omnigent to a storage or UI contract.
 - Identify the exact tool/server classification fields and image-block locations.
 - Determine whether per-app approval reaches Omnigent's `PermissionRequest` hook;
   retain the native TUI as the authoritative fallback.
-- Repeat under default `darwin_seatbelt` and explicit `sandbox.type: none`.
+- Record the generated native-wrapper sandbox and the vendor-reported command
+  sandbox so later diagnostics identify the layer that actually blocked a call.
 
 **Done when:**
 
@@ -271,8 +274,8 @@ committing Omnigent to a storage or UI contract.
   interruption.
 - The classification rule is fixture-backed rather than based on guessed names.
 - Approval behavior is documented, including the authoritative fallback.
-- The Seatbelt result is documented and any requested profile allowance is narrow
-  and evidence-backed.
+- The native-wrapper, vendor-sandbox, and macOS-permission boundaries are
+  documented without proposing an unnecessary Omnigent sandbox exception.
 - No private Claude Desktop API is required.
 
 #### 0B. Codex-native spike
@@ -281,11 +284,13 @@ committing Omnigent to a storage or UI contract.
   plugin.
 - Start Codex app-server under Omnigent's session-specific `CODEX_HOME`.
 - Run a harmless read-only application-state operation.
-- Capture sanitized `item/started`, progress, completed, failed, permission, and
-  interruption fixtures for `mcpToolCall`.
+- Capture sanitized `item/started`, completed, failed, permission, and
+  interruption fixtures for `mcpToolCall`; capture progress when emitted and
+  explicitly document its absence otherwise.
 - Record whether result content contains images and whether plugin/app context is
   available on each lifecycle edge.
-- Repeat under default `darwin_seatbelt` and explicit `sandbox.type: none`.
+- Record the generated native-wrapper sandbox and the vendor-reported command
+  sandbox so later diagnostics identify the layer that actually blocked a call.
 
 **Done when:**
 
@@ -396,12 +401,16 @@ screen-control runner as an implicit fallback.
 **Work:**
 
 1. Add a generic `mcpToolCall` builder from the verified app-server fixtures.
-2. Forward started, progress, completed, and failed lifecycle information without
-   inventing missing fields.
+2. Forward started, progress when emitted, completed, and failed lifecycle
+   information without inventing missing fields. Use a terminal interrupted-turn
+   edge to settle still-running calls when Codex emits no item completion.
 3. Serialize standard MCP text/resource content safely for generic tool history.
 4. Decode eligible image blocks into bounded frame artifacts.
-5. Classify Computer Use using verified plugin/server/tool/app-context metadata;
-   retain generic MCP presentation for all other plugins.
+5. Classify a started call provisionally using bounded, allowlisted
+   `node_repl/js` plus `@oai/sky` arguments (or future explicit identity fields),
+   then use `result._meta["codex/toolSurface"].kind == "computerUse"` as the
+   authoritative completion identity. Retain generic MCP presentation for all
+   other plugins and allow completion to correct the provisional classification.
 6. Preserve error details in bounded display text and maintain current item dedup
    and response ordering.
 
@@ -410,8 +419,9 @@ screen-control runner as an implicit fallback.
 - Generic non-Computer Use MCP fixtures render as ordinary MCP/function tool calls.
 - Computer Use fixtures receive normalized presentation metadata and artifact
   references.
-- Started/progress/completed/failed events preserve ordering across reconnect and
-  resume without duplicate cards or frames.
+- Started/optional-progress/completed/failed events preserve ordering across
+  reconnect and resume without duplicate cards or frames; an interrupted turn
+  cannot strand an in-progress card when no item completion arrives.
 - Missing optional image/app-context fields degrade to a text-only tool result.
 - Codex works only with a user-installed eligible plugin; no proprietary runtime is
   copied into Omnigent packages, builds, or tests.
@@ -529,8 +539,10 @@ that the frame cadence is useful enough for a detached preview.
 
 - Recorded, sanitized Claude fixtures with text-only, image, mixed text/image,
   failure, interruption, and duplicate/resume cases.
-- Recorded, sanitized Codex `mcpToolCall` fixtures for started, progress,
-  completed, failed, missing optional fields, and non-Computer Use MCP tools.
+- Recorded, sanitized Codex `mcpToolCall` fixtures for started, completed, failed,
+  interrupted-without-item-completion, missing optional fields, and non-Computer
+  Use MCP tools. Cover schema-defined progress with a synthetic fixture because
+  the live Computer Use calls emitted none.
 - Contract round-trip tests for presentation metadata and attachments.
 - Assertions that persisted conversation JSON, search content, logs, and emitted
   SSE never contain frame base64.
@@ -538,8 +550,8 @@ that the frame cadence is useful enough for a detached preview.
 - Session ownership and cross-session authorization tests.
 - File-purpose filtering, retention, expiry fallback, and session cleanup tests.
 - Prompt reconstruction tests proving metadata and attachments are not replayed.
-- macOS manual capability matrix for default Seatbelt versus unsandboxed discovery;
-  any profile change receives its own security-focused test/review.
+- macOS manual capability matrix for native-wrapper sandbox, vendor command
+  sandbox, vendor per-app approval, and OS Accessibility/Screen Recording state.
 
 ### Web
 
@@ -605,7 +617,7 @@ coverage, and Playwright happy path. All commits are DCO-signed.
 | No public live-frame stream | Promise latest observable frame only; do not market live video |
 | Screenshots contain sensitive information | Session ACLs, no indexing/telemetry, bounded retention, explicit sharing behavior |
 | Image payload causes database/context growth | Artifact references only; base64 exclusion assertions at persistence and prompt boundaries |
-| Seatbelt blocks vendor helpers | Discovery matrix first; narrow allowance if possible; never silently disable sandbox |
+| A permission or vendor-sandbox failure is misattributed | Report native-wrapper, vendor command-sandbox, per-app approval, and macOS permission state separately |
 | Provider-specific logic leaks into UI | One normalized presentation contract and shared view model |
 | Duplicate frames on resume/reconnect | Stable call/event identity plus content-aware/idempotent artifact persistence |
 | Hidden frames clutter user files | Dedicated purpose and default list filtering |
