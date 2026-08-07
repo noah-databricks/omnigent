@@ -216,6 +216,13 @@ change execution, or bypass a vendor prompt. The optional action label can come
 from the bounded `title` argument. A literal `app` string may be extracted on a
 best-effort basis, but failure to identify an app must not suppress the tool card.
 
+The same bounded scan may produce a presentation-only action summary from known
+Sky method names. `get_app_state` and `list_apps` map to inspection; direct action
+methods map to click, scroll, type, select, drag, keypress, or generic interaction.
+Because state inspection normally surrounds every interaction, inspection is
+omitted when a direct action is present. This is a call-level summary, not a claim
+about live ordering, coordinates, pointer location, or frame-level timing.
+
 ### Frame semantics
 
 `sky.get_app_state` returns a local screenshot URL to the JavaScript caller, but

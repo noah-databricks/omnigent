@@ -261,9 +261,21 @@ _SKY_METHODS = (
     "type_text",
 )
 _SKY_METHOD_PATTERN = re.compile(
-    rf"\b(?:sky|[A-Za-z_$][\w$]*Sky)\.(?:{'|'.join(_SKY_METHODS)})\s*\("
+    rf"\b(?:sky|[A-Za-z_$][\w$]*Sky)\.({'|'.join(_SKY_METHODS)})\s*\("
 )
 _SKY_APP_PATTERN = re.compile(r"\bapp\s*:\s*(['\"])(.{1,256}?)\1")
+_SKY_METHOD_ACTION_KIND = {
+    "get_app_state": "inspect",
+    "list_apps": "inspect",
+    "click": "click",
+    "drag": "drag",
+    "perform_secondary_action": "interact",
+    "press_key": "key",
+    "scroll": "scroll",
+    "select_text": "select",
+    "set_value": "type",
+    "type_text": "type",
+}
 
 
 @dataclass
@@ -5998,6 +6010,24 @@ def _mcp_arguments_scan(arguments: _JsonObject) -> str:
     return combined[:_MCP_ARGUMENT_SCAN_CHARS]
 
 
+def _sky_action_kinds(scan: str) -> list[str]:
+    """Summarize observable Sky methods without pretending to know timing.
+
+    ``get_app_state`` is present after most interactive actions because the
+    Computer Use skill refreshes state before deciding what to do next. It is
+    therefore shown as ``inspect`` only for read-only calls; otherwise the
+    genuinely interactive actions remain the useful summary.
+    """
+    action_kinds: list[str] = []
+    for match in _SKY_METHOD_PATTERN.finditer(scan):
+        action_kind = _SKY_METHOD_ACTION_KIND[match.group(1)]
+        if action_kind not in action_kinds:
+            action_kinds.append(action_kind)
+    if len(action_kinds) > 1 and "inspect" in action_kinds:
+        action_kinds.remove("inspect")
+    return action_kinds
+
+
 def _presentation_from_mcp_start(item: _JsonObject) -> _JsonObject | None:
     """Classify a live MCP call using explicit identity or a strict Sky rule."""
     arguments = item.get("arguments")
@@ -6026,6 +6056,9 @@ def _presentation_from_mcp_start(item: _JsonObject) -> _JsonObject | None:
     action_label = _bounded_display_text(arguments.get("title"))
     if action_label is not None:
         presentation["action_label"] = action_label
+    action_kinds = _sky_action_kinds(scan)
+    if action_kinds:
+        presentation["action_kinds"] = action_kinds
     app_context_app = app_context.get("app") if isinstance(app_context, dict) else None
     app_id = (
         _bounded_display_text(app_context_app.get("appId"))
@@ -6071,6 +6104,9 @@ def _presentation_from_mcp_result(item: _JsonObject) -> _JsonObject | None:
         action_label = _bounded_display_text(arguments.get("title"))
         if action_label is not None:
             presentation["action_label"] = action_label
+        action_kinds = _sky_action_kinds(_mcp_arguments_scan(arguments))
+        if action_kinds:
+            presentation["action_kinds"] = action_kinds
     app = tool_surface.get("app")
     if isinstance(app, dict):
         app_id = _bounded_display_text(app.get("appId"))

@@ -6,6 +6,7 @@ from omnigent.entities.comment import Comment, CommentsFingerprint
 from omnigent.entities.conversation import (
     NON_CONTENT_ITEM_TYPES,
     CompactionData,
+    ComputerUseActionKind,
     ComputerUsePresentation,
     Conversation,
     ConversationItem,
@@ -57,6 +58,7 @@ __all__ = [
     "Comment",
     "CommentsFingerprint",
     "CompactionData",
+    "ComputerUseActionKind",
     "ComputerUsePresentation",
     "Conversation",
     "ConversationItem",

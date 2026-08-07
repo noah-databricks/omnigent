@@ -72,6 +72,7 @@ def test_computer_use_live_frame_and_reload_parity(
         "app_name": "TextEdit",
         "app_id": "com.apple.TextEdit",
         "action_label": "Inspect document",
+        "action_kinds": ["inspect"],
     }
 
     page.goto(f"{base_url}/c/{session_id}")
@@ -99,6 +100,7 @@ def test_computer_use_live_frame_and_reload_parity(
         panel = page.get_by_role("region", name="Computer Use")
         expect(panel.get_by_text("TextEdit", exact=True)).to_be_visible()
         expect(panel.get_by_text("Inspect document", exact=True)).to_be_visible()
+        expect(panel.get_by_role("list", name="Computer actions")).to_contain_text("Inspecting")
         expect(panel.get_by_role("button", name="Stop")).to_be_visible()
         expect(
             panel.get_by_role("status", name="Loading computer preview", exact=True)

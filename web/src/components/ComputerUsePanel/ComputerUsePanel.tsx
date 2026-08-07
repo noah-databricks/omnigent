@@ -1,15 +1,28 @@
 import {
+  ActivityIcon,
+  ArrowUpDownIcon,
   CheckCircle2Icon,
   CircleStopIcon,
+  EyeIcon,
+  HandIcon,
   ImageOffIcon,
+  KeyboardIcon,
   MonitorIcon,
+  MousePointerClickIcon,
+  MoveIcon,
   OctagonXIcon,
   PauseCircleIcon,
+  TextCursorInputIcon,
+  TextSelectIcon,
 } from "lucide-react";
 import { SessionImage } from "@/components/SessionImage";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import type { ComputerUseStatus, ComputerUseViewModel } from "@/lib/computerUse";
+import type {
+  ComputerUseActionKind,
+  ComputerUseStatus,
+  ComputerUseViewModel,
+} from "@/lib/computerUse";
 import { cn } from "@/lib/utils";
 import { useChatStore } from "@/store/chatStore";
 
@@ -31,6 +44,47 @@ function StatusIcon({ status }: { status: ComputerUseStatus }) {
   if (status === "completed") return <CheckCircle2Icon className="size-4" />;
   if (status === "failed") return <OctagonXIcon className="size-4" />;
   return <PauseCircleIcon className="size-4" />;
+}
+
+const ACTION_DETAILS = {
+  inspect: { label: "Inspecting", Icon: EyeIcon },
+  click: { label: "Clicking", Icon: MousePointerClickIcon },
+  scroll: { label: "Scrolling", Icon: ArrowUpDownIcon },
+  type: { label: "Typing", Icon: TextCursorInputIcon },
+  select: { label: "Selecting", Icon: TextSelectIcon },
+  drag: { label: "Dragging", Icon: MoveIcon },
+  key: { label: "Pressing keys", Icon: KeyboardIcon },
+  interact: { label: "Interacting", Icon: HandIcon },
+} satisfies Record<ComputerUseActionKind, { label: string; Icon: typeof EyeIcon }>;
+
+function ComputerActions({ actionKinds }: { actionKinds?: ComputerUseActionKind[] }) {
+  if (!actionKinds?.length) {
+    return (
+      <ul aria-label="Computer actions" className="mt-3 flex flex-wrap gap-1.5">
+        <li className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+          <ActivityIcon aria-hidden="true" className="size-3.5" />
+          Using computer
+        </li>
+      </ul>
+    );
+  }
+
+  return (
+    <ul aria-label="Computer actions" className="mt-3 flex flex-wrap gap-1.5">
+      {actionKinds.map((actionKind) => {
+        const { label, Icon } = ACTION_DETAILS[actionKind];
+        return (
+          <li
+            key={actionKind}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground"
+          >
+            <Icon aria-hidden="true" className="size-3.5" />
+            {label}
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 /** Provider-neutral latest-frame preview for native harness computer use. */
@@ -96,7 +150,9 @@ export function ComputerUsePanel({ conversationId, viewModel, className }: Compu
         </div>
       </div>
 
-      <div className="mt-3 min-w-0 overflow-hidden rounded-lg border border-border bg-muted/30">
+      <ComputerActions actionKinds={presentation.actionKinds} />
+
+      <div className="mt-2 min-w-0 overflow-hidden rounded-lg border border-border bg-muted/30">
         {frame ? (
           <SessionImage
             path={framePath}

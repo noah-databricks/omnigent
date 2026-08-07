@@ -138,6 +138,7 @@ def test_function_call_computer_use_presentation_round_trip() -> None:
             app_name="  TextEdit  ",
             app_id="com.apple.TextEdit",
             action_label="  Inspect document  ",
+            action_kinds=["inspect", "inspect", "click"],
         ),
     )
 
@@ -148,6 +149,7 @@ def test_function_call_computer_use_presentation_round_trip() -> None:
         "app_name": "TextEdit",
         "app_id": "com.apple.TextEdit",
         "action_label": "Inspect document",
+        "action_kinds": ["inspect", "click"],
     }
     parsed = FunctionCallData.model_validate(dumped)
     assert parsed == fc
@@ -161,6 +163,13 @@ def test_computer_use_presentation_rejects_unknown_provider() -> None:
 def test_computer_use_presentation_bounds_untrusted_text() -> None:
     with pytest.raises(ValidationError, match="at most 256"):
         ComputerUsePresentation(provider="claude", app_name="x" * 257)
+
+
+def test_computer_use_presentation_rejects_unknown_action_kind() -> None:
+    with pytest.raises(ValidationError, match="action_kinds"):
+        ComputerUsePresentation.model_validate(
+            {"provider": "codex", "action_kinds": ["click", "teleport"]}
+        )
 
 
 # ── FunctionCallOutputData ─────────────────────────────

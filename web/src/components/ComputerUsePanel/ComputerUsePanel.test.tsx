@@ -18,6 +18,7 @@ const base: ComputerUseViewModel = {
     appName: "TextEdit",
     appId: "com.apple.TextEdit",
     actionLabel: "Inspect document",
+    actionKinds: ["inspect"],
   },
   status: "completed",
   frame: {
@@ -43,12 +44,51 @@ describe("ComputerUsePanel", () => {
     expect(screen.getByText("TextEdit")).toBeInTheDocument();
     expect(screen.getByText("Inspect document")).toBeInTheDocument();
     expect(screen.getByRole("status", { name: /codex computer use completed/i })).toBeVisible();
+    expect(screen.getByRole("list", { name: "Computer actions" })).toHaveTextContent("Inspecting");
     expect(screen.getByTestId("session-image")).toHaveAttribute(
       "src",
       "/v1/sessions/conv%2F1/resources/files/file%2Fframe%201/content",
     );
     expect(screen.queryByText("Latest frame")).toBeNull();
     expect(screen.queryByText("1280 × 800")).toBeNull();
+  });
+
+  it("renders normalized interaction icons and a generic fallback", () => {
+    const { rerender } = render(
+      <ComputerUsePanel
+        conversationId="conv_1"
+        viewModel={{
+          ...base,
+          presentation: {
+            ...base.presentation,
+            actionKinds: ["click", "scroll", "type", "select", "drag", "key", "interact"],
+          },
+        }}
+      />,
+    );
+
+    const actions = screen.getByRole("list", { name: "Computer actions" });
+    for (const label of [
+      "Clicking",
+      "Scrolling",
+      "Typing",
+      "Selecting",
+      "Dragging",
+      "Pressing keys",
+      "Interacting",
+    ]) {
+      expect(actions).toHaveTextContent(label);
+    }
+
+    rerender(
+      <ComputerUsePanel
+        conversationId="conv_1"
+        viewModel={{ ...base, presentation: { ...base.presentation, actionKinds: undefined } }}
+      />,
+    );
+    expect(screen.getByRole("list", { name: "Computer actions" })).toHaveTextContent(
+      "Using computer",
+    );
   });
 
   it("shows a loader while the first frame is pending", () => {

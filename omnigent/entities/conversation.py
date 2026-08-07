@@ -325,6 +325,18 @@ def synthesize_conversation_title(
     return collapsed[: max(0, limit - 1)].rstrip() + "…"
 
 
+ComputerUseActionKind = Literal[
+    "inspect",
+    "click",
+    "scroll",
+    "type",
+    "select",
+    "drag",
+    "key",
+    "interact",
+]
+
+
 class ComputerUsePresentation(BaseModel):
     """Provider-neutral display metadata for a computer-use call.
 
@@ -336,6 +348,9 @@ class ComputerUsePresentation(BaseModel):
     :param app_name: Optional bounded display name, e.g. ``"Safari"``.
     :param app_id: Optional bounded platform id, e.g. ``"com.apple.Safari"``.
     :param action_label: Optional bounded action label from the vendor event.
+    :param action_kinds: Optional bounded, provider-neutral action summary inferred
+        from public vendor call metadata. This is presentation-only and does not
+        claim frame-level timing or coordinates.
     """
 
     kind: Literal["computer_use"] = "computer_use"
@@ -343,6 +358,11 @@ class ComputerUsePresentation(BaseModel):
     app_name: str | None = Field(default=None, max_length=256)
     app_id: str | None = Field(default=None, max_length=256)
     action_label: str | None = Field(default=None, max_length=256)
+    action_kinds: list[ComputerUseActionKind] = Field(
+        default_factory=list,
+        max_length=8,
+        exclude_if=lambda value: not value,
+    )
 
     @field_validator("app_name", "app_id", "action_label")
     @classmethod
@@ -352,6 +372,14 @@ class ComputerUsePresentation(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
+
+    @field_validator("action_kinds")
+    @classmethod
+    def deduplicate_action_kinds(
+        cls, value: list[ComputerUseActionKind]
+    ) -> list[ComputerUseActionKind]:
+        """Keep adapter order while preventing duplicate UI chips."""
+        return list(dict.fromkeys(value))
 
 
 class FunctionCallOutputAttachment(BaseModel):

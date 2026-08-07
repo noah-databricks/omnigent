@@ -1,11 +1,25 @@
 import type { AnyBlock } from "./blocks";
 
+export const COMPUTER_USE_ACTION_KINDS = [
+  "inspect",
+  "click",
+  "scroll",
+  "type",
+  "select",
+  "drag",
+  "key",
+  "interact",
+] as const;
+
+export type ComputerUseActionKind = (typeof COMPUTER_USE_ACTION_KINDS)[number];
+
 export interface ComputerUsePresentation {
   kind: "computer_use";
   provider: "claude" | "codex";
   appName?: string;
   appId?: string;
   actionLabel?: string;
+  actionKinds?: ComputerUseActionKind[];
 }
 
 /** Flattened conversation-item JSON uses the server's snake_case keys. */
@@ -15,6 +29,7 @@ export interface ComputerUsePresentationWire {
   app_name?: string;
   app_id?: string;
   action_label?: string;
+  action_kinds?: ComputerUseActionKind[];
 }
 
 export interface ComputerFrameAttachment {
@@ -47,6 +62,8 @@ export interface ComputerUseViewModel {
 const DISPLAY_TEXT_LIMIT = 256;
 const ERROR_TEXT_LIMIT = 512;
 const MAX_ATTACHMENTS = 16;
+const MAX_ACTION_KINDS = COMPUTER_USE_ACTION_KINDS.length;
+const ACTION_KIND_SET = new Set<string>(COMPUTER_USE_ACTION_KINDS);
 const SUPPORTED_FRAME_TYPES = new Set<ComputerFrameAttachment["contentType"]>([
   "image/jpeg",
   "image/png",
@@ -65,6 +82,21 @@ function optionalDisplayText(value: unknown): string | undefined {
   return trimmed || undefined;
 }
 
+function actionKindsFromWire(value: unknown): ComputerUseActionKind[] {
+  if (!Array.isArray(value)) return [];
+  const actionKinds: ComputerUseActionKind[] = [];
+  for (const candidate of value.slice(0, MAX_ACTION_KINDS)) {
+    if (
+      typeof candidate === "string" &&
+      ACTION_KIND_SET.has(candidate) &&
+      !actionKinds.includes(candidate as ComputerUseActionKind)
+    ) {
+      actionKinds.push(candidate as ComputerUseActionKind);
+    }
+  }
+  return actionKinds;
+}
+
 /** Parse the server's optional, display-only computer-use metadata. */
 export function computerUsePresentationFromWire(
   value: unknown,
@@ -76,12 +108,14 @@ export function computerUsePresentationFromWire(
   const appName = optionalDisplayText(data.app_name);
   const appId = optionalDisplayText(data.app_id);
   const actionLabel = optionalDisplayText(data.action_label);
+  const actionKinds = actionKindsFromWire(data.action_kinds);
   return {
     kind: "computer_use",
     provider: data.provider,
     ...(appName ? { appName } : {}),
     ...(appId ? { appId } : {}),
     ...(actionLabel ? { actionLabel } : {}),
+    ...(actionKinds.length > 0 ? { actionKinds } : {}),
   };
 }
 
@@ -236,6 +270,8 @@ export function computerUseViewModelsEqual(
 ): boolean {
   if (left === right) return true;
   if (left === null || right === null) return false;
+  const leftActionKinds = left.presentation.actionKinds ?? [];
+  const rightActionKinds = right.presentation.actionKinds ?? [];
   return (
     left.callId === right.callId &&
     left.status === right.status &&
@@ -244,6 +280,8 @@ export function computerUseViewModelsEqual(
     left.presentation.appName === right.presentation.appName &&
     left.presentation.appId === right.presentation.appId &&
     left.presentation.actionLabel === right.presentation.actionLabel &&
+    leftActionKinds.length === rightActionKinds.length &&
+    leftActionKinds.every((actionKind, index) => actionKind === rightActionKinds[index]) &&
     left.frame?.fileId === right.frame?.fileId &&
     left.frame?.contentType === right.frame?.contentType &&
     left.frame?.width === right.frame?.width &&

@@ -6024,6 +6024,7 @@ def test_forwarder_classifies_recorded_codex_computer_use_fixture() -> None:
         "kind": "computer_use",
         "provider": "codex",
         "action_label": "Inspect TextEdit window title",
+        "action_kinds": ["inspect"],
         "app_id": "com.apple.TextEdit",
     }
     assert posted[0]["data"]["item_data"]["presentation"] == presentation
@@ -6085,10 +6086,55 @@ def test_forwarder_streams_mcp_start_progress_and_completion(tmp_path: Path) -> 
     ]
     call = posted[0]["data"]["item_data"]
     assert call["presentation"]["app_name"] == "TextEdit"
+    assert call["presentation"]["action_kinds"] == ["inspect"]
     assert posted[1]["data"] == {"call_id": "exec_image", "delta": "Reading TextEdit"}
     output = posted[2]["data"]["item_data"]
     assert output["presentation"]["app_id"] == "com.apple.TextEdit"
+    assert output["presentation"]["action_kinds"] == ["inspect"]
     assert output["presentation_final"] is True
+
+
+def test_forwarder_summarizes_interactive_sky_methods_without_inspection_noise() -> None:
+    """Public Sky call source becomes a bounded, ordered action summary."""
+    presentation = codex_native_forwarder._presentation_from_mcp_start(
+        {
+            "server": "node_repl",
+            "tool": "js",
+            "arguments": {
+                "title": "Interact with TextEdit",
+                "code": "\n".join(
+                    (
+                        'await sky.get_app_state({ app: "TextEdit" });',
+                        'await sky.click({ app: "TextEdit", element_index: 1 });',
+                        "await sky.perform_secondary_action({",
+                        '  app: "TextEdit", element_index: 1, action: "Show Menu"',
+                        "});",
+                        'await sky.scroll({ app: "TextEdit", direction: "down" });',
+                        'await sky.type_text({ app: "TextEdit", text: "hello" });',
+                        'await sky.set_value({ app: "TextEdit", element_index: 2, value: "x" });',
+                        'await sky.select_text({ app: "TextEdit", text: "hello" });',
+                        (
+                            'await sky.drag({ app: "TextEdit", from_x: 1, from_y: 1, '
+                            "to_x: 2, to_y: 2 });"
+                        ),
+                        'await sky.press_key({ app: "TextEdit", key: "Return" });',
+                        'await sky.get_app_state({ app: "TextEdit" });',
+                    )
+                ),
+            },
+        }
+    )
+
+    assert presentation is not None
+    assert presentation["action_kinds"] == [
+        "click",
+        "interact",
+        "scroll",
+        "type",
+        "select",
+        "drag",
+        "key",
+    ]
 
 
 def test_forwarder_uploads_computer_frame_without_base64_event_payload() -> None:

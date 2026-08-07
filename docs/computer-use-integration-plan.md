@@ -35,10 +35,10 @@ building a second screen-control runtime.
 
 Claude Code and Codex remain responsible for screenshots, app interaction,
 permissions, clicks, typing, and their own safety controls. Omnigent preserves the
-vendor tool lifecycle and selected screenshot frames, normalizes them into a
-provider-neutral presentation contract, and renders them in a Computer workspace
-panel. A later Electron enhancement may show the same latest frame in a detachable
-picture-in-picture window.
+vendor tool lifecycle, a conservative summary of observable actions, and selected
+screenshot frames; normalizes them into a provider-neutral presentation contract;
+and renders them in a Computer workspace panel. A later Electron enhancement may
+show the same latest frame in a detachable picture-in-picture window.
 
 The first release is an observability and control surface, not an automation
 engine. Its fidelity is bounded by the public events and result content emitted by
@@ -68,8 +68,8 @@ working in or inspect the most recent visual state from Omnigent.
    Claude Code or Codex environment.
 2. Preserve computer-use lifecycle events and screenshot results without storing
    inline base64 in conversation rows.
-3. Give the web UI one provider-neutral model for current app, current action,
-   provider, status, and latest frame.
+3. Give the web UI one provider-neutral model for current app, current action
+   summary, provider, status, and latest frame.
 4. Keep vendor permissions, approvals, interruption, and safety controls
    authoritative.
 5. Make capability and setup failures understandable without silently changing a
@@ -111,11 +111,12 @@ working in or inspect the most recent visual state from Omnigent.
   and failed states.
 - Claude tool-result image extraction before the existing history-sanitization
   step.
-- A provider-neutral computer-use presentation contract.
+- A provider-neutral computer-use presentation contract, including a bounded
+  action-kind summary inferred from public vendor call metadata.
 - Session-scoped frame artifacts with ownership checks, bounds, retention, and
   normal-session cleanup.
 - A Computer tab in the web workspace rail with latest-frame preview, current app,
-  current action, provider, status, errors, and a Stop action using the existing
+  action icons, provider, status, errors, and a Stop action using the existing
   session interrupt path.
 - Auto-opening the Computer tab on the first computer-use action in a session.
 - Reconnect and reload behavior using persisted metadata and artifact references.
@@ -143,6 +144,8 @@ working in or inspect the most recent visual state from Omnigent.
 - Drawing a native border around the target window. Public tool events do not
   reliably expose window bounds; accurate highlighting would be a separate native
   macOS Accessibility/window-enumeration project.
+- Reconstructing or animating pointer coordinates, click locations, or frame-level
+  action timing that vendor public events do not reliably expose.
 - Replacing or suppressing vendor permission prompts.
 - Sending clicks, text, or other interaction commands from the preview panel.
 - OCR, screenshot search indexing, analytics collection, or automated redaction.
@@ -222,7 +225,8 @@ Illustrative wire shape:
     "provider": "claude",
     "app_name": "Safari",
     "app_id": "com.apple.Safari",
-    "action_label": "Inspect page"
+    "action_label": "Inspect page",
+    "action_kinds": ["inspect"]
   }
 }
 ```
@@ -472,14 +476,16 @@ screen-control runner as an implicit fallback.
 1. Extend history and live-stream parsing with optional presentation and attachment
    fields.
 2. Derive a per-session computer-use view model from both hydrated history and live
-   events: provider, app, action, status, latest valid frame, and error.
+   events: provider, app, bounded action kinds, status, latest valid frame, and
+   error.
 3. Add a Computer rail tab that becomes available after the first classified
    computer-use event.
 4. Auto-open the rail and select Computer on the first running action, following
    the Browser tab's existing event-listener pattern. Do not repeatedly steal focus
    after the user changes tabs.
-5. Render the latest frame through the session-authorized artifact path with useful
-   loading, missing, expired, and error fallbacks.
+5. Render normalized action icons beside the latest frame, then load the frame
+   through the session-authorized artifact path with useful loading, missing,
+   expired, and error fallbacks.
 6. Add a Stop action wired to the existing session interrupt behavior. The panel
    sends no mouse/keyboard input.
 7. Make current app/action/status available to assistive technology and ensure the
@@ -510,6 +516,10 @@ screen-control runner as an implicit fallback.
 - The panel renders running, completed, failed, interrupted, and unavailable
   states; loading, missing, expired, and failed frame loads remain bounded. Stop
   calls the existing chat-store interrupt action.
+- Public Sky method names are summarized as provider-neutral Inspecting, Clicking,
+  Scrolling, Typing, Selecting, Dragging, Pressing keys, or Interacting chips.
+  Routine state inspection is suppressed when an interactive action is present;
+  unstructured calls fall back to "Using computer". No coordinates are inferred.
 - `pnpm --dir web type-check`, `pnpm --dir web lint`, and 216 focused Vitest tests
   pass. The full Vitest run passes 5,396 tests and has three unrelated
   `NewChatDialog.test.tsx` failures that reproduce unchanged at the base commit.
@@ -530,6 +540,13 @@ before upload and has regression coverage for the mismatch. Claude Code remains
 unvalidated because the available account uses `api_key_helper`; built-in
 Computer Use requires an eligible claude.ai Pro/Max login, and authentication was
 not changed for testing.
+
+An additional headed real-harness test performed a harmless Calculator keypress
+and clear through `sky.press_key`. The panel displayed "Pressing keys" during the
+call and after completion/reload, omitted the surrounding routine inspection
+calls, preserved the authoritative Calculator bundle id, and rendered the emitted
+frame. This validates action summarization without adding an Omnigent-owned input
+or pointer-rendering runtime.
 
 ### Step 4: Capability and setup UX
 

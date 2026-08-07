@@ -3,6 +3,7 @@ import { BlockStream } from "./blockStream";
 import {
   computerFramesFromWire,
   computerUsePresentationFromWire,
+  computerUseViewModelsEqual,
   deriveComputerUseViewModel,
 } from "./computerUse";
 import type { ConversationItem } from "./conversationItems";
@@ -15,6 +16,7 @@ const presentationWire = {
   app_name: "TextEdit",
   app_id: "com.apple.TextEdit",
   action_label: "Inspect document",
+  action_kinds: ["inspect" as const],
 };
 
 const presentation = {
@@ -23,6 +25,7 @@ const presentation = {
   appName: "TextEdit",
   appId: "com.apple.TextEdit",
   actionLabel: "Inspect document",
+  actionKinds: ["inspect" as const],
 };
 
 const frameWire = {
@@ -111,6 +114,13 @@ describe("computer-use wire parsing", () => {
         { ...frameWire, width: 0 },
       ]),
     ).toEqual([]);
+
+    expect(
+      computerUsePresentationFromWire({
+        ...presentationWire,
+        action_kinds: ["click", "unknown", "click", "scroll"],
+      }),
+    ).toMatchObject({ actionKinds: ["click", "scroll"] });
   });
 });
 
@@ -203,4 +213,19 @@ describe("deriveComputerUseViewModel", () => {
       expect(model?.error).toBe(status === "failed" ? "Screen capture failed" : null);
     },
   );
+});
+
+describe("computerUseViewModelsEqual", () => {
+  it("detects a change in the summarized computer actions", () => {
+    const model = deriveComputerUseViewModel(itemsToBlocks(historyItems()));
+    expect(model).not.toBeNull();
+    if (model === null) return;
+
+    expect(
+      computerUseViewModelsEqual(model, {
+        ...model,
+        presentation: { ...model.presentation, actionKinds: ["click"] },
+      }),
+    ).toBe(false);
+  });
 });
